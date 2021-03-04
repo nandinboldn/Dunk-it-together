@@ -1,5 +1,3 @@
-
-A
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////  
@@ -35,20 +33,29 @@ A
 
 
 #include "mappy_A5.h"
-
+#include <pthread.h>
 
 #define WIDTH 960
 #define HEIGHT 470
 #define FPS 50
+
+#define NUM_THREADS 5
 
 using namespace std;
 
 bool keys[] = {false,false,false,false,false};
 enum KEYS{LEFT,RIGHT,SPACE,UP,DOWN};
 
+//Finite states
+enum carState{CLOSE,FAR};
+enum basketballState{NORMAL, LONGDUNK, REG_DUNK, TOO_MANY_ATTEMPT, FAIR_ATTEMPTS, GOOD_ATTEMPTS, PERFECT_ATTEMPTS, POOR_ATTEMPTS, TOO_CLOSE};
+
 int textCenterY = 80 , textX = WIDTH;
 int moveSpeed = 12 , moveSpeed1 = 5,moveSpeed2 = 2;
 int current_x_off = 0;
+int carState = -1;
+int hoopState = -1;
+int hoopNum = 0;
 
 struct BALLER{
 	ALLEGRO_BITMAP *sprite_sheet;
@@ -72,13 +79,12 @@ struct Objects{
 };
 
 
-void playerDribbling(BALLER baller, int counter_baller);
-void playerDunking(int x, int y, BALLER baller);
-void loadObject(struct Objects object, int posX , int posY, int s_count);
-
+void loadObjects(Objects * objects);
+void changeCarState(int &state, int newState);
+void changeHoopState(int &hoopState, int newState);
 
 int main(int argc, char **argv)
-{
+{	
     //al_init
     if(!al_init())
         al_show_native_message_box(NULL,NULL,NULL,"failed to initialize allegro!!",NULL,0);
@@ -116,6 +122,7 @@ int main(int argc, char **argv)
 	int attemptNum = 0, madeNum = 0,randNum = 1;
 	int animation_count = 0 , hoopCount = 0;
 	int jumpDistance,jumpDistance2;
+	int i_rand = rand() % 3;
 
 
 
@@ -136,7 +143,7 @@ int main(int argc, char **argv)
 
 
 
-    //game font
+    //game fonts
 	ALLEGRO_FONT *font_40_man = al_load_font("fonts/manaspc.ttf",40,0);
     ALLEGRO_FONT *font_30_man = al_load_font("fonts/manaspc.ttf",30,0);
 	ALLEGRO_FONT *font_25_man = al_load_font("fonts/manaspc.ttf",25,0);
@@ -148,8 +155,10 @@ int main(int argc, char **argv)
 
 	//text colors
     ALLEGRO_COLOR text_col = al_map_rgb(255,191,70);
-    ALLEGRO_COLOR text_col_green = al_map_rgb(138,230,136);
-
+    ALLEGRO_COLOR text_col_green = al_map_rgb(170,230,136);
+	ALLEGRO_COLOR text_col_red = al_map_rgb(255,107,107);
+	// ALLEGRO_COLOR text_col_green = al_map_rgb(57,202,243);
+	
 
     //register events
     al_register_event_source(queue, al_get_timer_event_source(timer));
@@ -194,47 +203,9 @@ int main(int argc, char **argv)
 
 	//main array conaining objects in the game 
 	Objects objects[5];
+	loadObjects(objects);
 
-	objects[1].sprite_sheet = al_load_bitmap("bitmaps/pollution_car1.png");
-	objects[1].w_img = al_get_bitmap_width(objects[1].sprite_sheet);
-	objects[1].h_img = al_get_bitmap_height(objects[1].sprite_sheet);
-	objects[1].positionX = -300;
-	objects[1].positionY = 170;
-	objects[1].sprite_count = 14;
-
-	objects[2].sprite_sheet = al_load_bitmap("bitmaps/pollution_car3.png");
-	objects[2].w_img = al_get_bitmap_width(objects[2].sprite_sheet);
-	objects[2].h_img = al_get_bitmap_height(objects[2].sprite_sheet);
-	objects[2].positionX = WIDTH + 1000;
-	objects[2].positionY = 120;
-	objects[2].sprite_count = 14;
-
-
-	objects[0].sprite_sheet = al_load_bitmap("bitmaps/pollution_car3.png");
-	objects[0].w_img = al_get_bitmap_width(objects[0].sprite_sheet);
-	objects[0].h_img = al_get_bitmap_height(objects[0].sprite_sheet);
-	objects[0].positionX = WIDTH + 200;
-	objects[0].positionY = 200;
-	objects[0].sprite_count = 14;
-
-
-
-	objects[3].sprite_sheet = al_load_bitmap("bitmaps/pollution_smoke.png");
-	objects[3].w_img = al_get_bitmap_width(objects[3].sprite_sheet);
-	objects[3].h_img = al_get_bitmap_height(objects[3].sprite_sheet);
-	objects[3].positionX = WIDTH;
-	objects[3].positionY = 300;
-	objects[3].counter2 = 39;
-
-
-	objects[4].sprite_sheet = al_load_bitmap("bitmaps/trump.png");
-	objects[4].w_img = al_get_bitmap_width(objects[4].sprite_sheet);
-	objects[4].h_img = al_get_bitmap_height(objects[4].sprite_sheet);
-	objects[4].positionX = WIDTH + 200;
-	objects[4].positionY = 200;
-	objects[4].sprite_count = 8;
-
-
+	
 
 	Objects hoop;
 	hoop.sprite_sheet = al_load_bitmap ("bitmaps/hoop.png");
@@ -254,6 +225,10 @@ int main(int argc, char **argv)
 	hoop2.counter = 0;
  	hoop2.sprite_count = 14;
 
+
+	Objects hoop_green;
+	hoop_green.sprite_sheet = al_load_bitmap("bitmaps/hoop1.png");
+	hoop_green.image = al_create_sub_bitmap(hoop_green.sprite_sheet,0,0,hoop.w_img, hoop.h_img/hoop.sprite_count);
 
 
 	al_start_timer(timer);
@@ -327,6 +302,10 @@ int main(int argc, char **argv)
 					break;
 				case ALLEGRO_KEY_ENTER:
 					if(collided){
+						
+
+						//reset finite States
+						changeHoopState(hoopState,NORMAL);
 
 						//reset the coordinates
 						x_player = 10;
@@ -368,6 +347,7 @@ int main(int argc, char **argv)
 			}
 
 			if(al_key_down(&keyState , ALLEGRO_KEY_LCTRL)){
+
 					//help Screen
 					if(al_key_down(&keyState,ALLEGRO_KEY_H))
 						help = true;    
@@ -664,6 +644,146 @@ int main(int argc, char **argv)
 	////////////////////////////////////  The game restarts from the most recent checkpoint	  //////////////////
 
 			if (gamePlay){
+
+				//finite States for dodging the car closely,or dunking over the car are BELOW
+				if(carState == CLOSE){
+					//show feedback only when user is dodging with either UP or DOWN 
+					if(keys[UP] || keys[DOWN]){
+						if(i_rand == 0){
+							al_draw_text(font_25_man , text_col_red, x_player, y_player - 40, 0, "NICE DODGE");
+						}
+						else if (i_rand == 1) {
+							al_draw_text(font_25_man , text_col_red, x_player, y_player - 40, 0, "GOOD DODGE");
+						}
+						else if (i_rand == 2) {
+							al_draw_text(font_25_man , text_col_red, x_player, y_player - 40, 0, "AMAZING");
+						}
+						else if (i_rand == 3) {
+							al_draw_text(font_25_man , text_col_red, x_player, y_player - 40, 0, "EXCELENT SKILLS");
+						}
+						else{
+							al_draw_text(font_25_man , text_col_red, x_player, y_player - 40, 0, "CLOSE ONE");
+						}
+					}
+					else {
+						changeCarState(carState,FAR);
+					}
+						
+				}
+				//NORMAL
+				else {
+
+					//collision detection for dodging cars
+					if(!playerDunking && baller.bottom[3] > objects[0].y1 - 40 && baller.bottom[1] < objects[0].y2 && baller.bottom[2] > objects[0].x1 -25 && baller.bottom[0] < objects[0].x2 ){
+						changeCarState(carState,CLOSE);
+						//refresh the random number
+						i_rand = rand() % 5;
+					}
+					if(!playerDunking && baller.bottom[3] > objects[2].y1 && baller.bottom[1] < objects[2].y2 + 40 && baller.bottom[2] > objects[2].x1 -25 && baller.bottom[0] < objects[2].x2 ){
+						changeCarState(carState,CLOSE);
+						//refresh the random number
+						i_rand = rand() % 5;
+					}
+
+				}
+
+
+
+
+				//finite states for dunks mostly, and for moving the hoop if necessary
+				if(hoopState == REG_DUNK){
+					//perfect range for perfect dunking 
+					if ( jumpDistance <= 330 && jumpDistance >=325){
+						al_draw_text(font_30_man , text_col_red, x_player, y_player - 80, 0, "PERFECT DUNK !!!");
+
+					}else{
+						//print out feedback randomly
+						if(i_rand == 0)
+							al_draw_text(font_30_man , text_col_red, x_player, y_player - 80, 0, "GOOD DUNK");
+						else if (i_rand == 1) {
+							al_draw_text(font_30_man , text_col_red,  x_player, y_player - 80, 0, "FAIR DUNK");
+						}else{
+							al_draw_text(font_30_man , text_col_red,  x_player, y_player - 80, 0, "LOOK AT YA");
+
+						}
+					}
+
+				}
+				else if (hoopState == LONGDUNK) {
+					al_draw_text(font_30_man , text_col_red, x_player, y_player - 80, 0, "OMG, YOU ARE KILLING IT !!!");	
+				}
+				else if (hoopState == TOO_MANY_ATTEMPT) {
+					if(i_rand == 0)
+						al_draw_textf(font_30_man , text_col_red, 200, 200, 0, "%d/%d - WE CAN CHANGE THE 0",madeNum,attemptNum);
+					else
+						al_draw_text(font_30_man , text_col_red, 200, 200, 0, "COME ON, I KNOW YOU CAN DO THIS");
+				}
+				else if (hoopState == FAIR_ATTEMPTS) {
+					al_draw_text(font_30_man , text_col_red, 200, 200, 0, "I KNOW YOU CAN DO BETTER");
+
+				}
+				else if (hoopState == GOOD_ATTEMPTS) {
+					if(i_rand == 0){
+						al_draw_text(font_30_man , text_col_red, 200, 200, 0, "YOU ARE DOING GOOD");
+
+					}else if (i_rand == 1) {
+						al_draw_text(font_30_man , text_col_red, 200, 200, 0, "KEEP PUSHING");
+
+					}else{
+						al_draw_text(font_30_man , text_col_red, 200, 200, 0, "YOU GOT THIS");
+
+					}
+
+				}
+				else if (hoopState == PERFECT_ATTEMPTS) {
+						al_draw_textf(font_30_man , text_col_red, 200, 200, 0, "%d OUT OF %d YOU ARE ON POINT!!!", madeNum,attemptNum);
+
+				}
+				//move the hoop itself if the player is already past the distance for succesful dunks
+				else if (hoopState == TOO_CLOSE) {
+						if(hoopNum == 1){
+							hoop2.positionX -=moveSpeed1;
+						}
+						if(hoopNum == 2){
+							hoop.positionX -= moveSpeed1;
+						}					
+				}
+				//NORMAL
+				else{
+					//refresh the random number for getting a feedback on dunks
+					i_rand = rand() % 3;
+					// get the ratio of number of succesful dunks over number of dunk attempts
+					double percentage = 1.0 * madeNum/attemptNum;
+
+					//give feedback to user depending on their success percentage
+					if(percentage >= 0.5){
+						if (percentage > 0.9)
+							changeHoopState(hoopState,PERFECT_ATTEMPTS);
+						else
+							changeHoopState(hoopState, GOOD_ATTEMPTS);
+					}else if(  percentage >= 0.3 && percentage < 0.5){
+						changeHoopState(hoopState,FAIR_ATTEMPTS);
+					}else if(percentage >= 0.1 && percentage < 0.3){
+						changeHoopState(hoopState, POOR_ATTEMPTS);
+					}else{
+						//if the user doesn't make dunk after more than 5 attempts
+						if(attemptNum >= 5) changeHoopState(hoopState,TOO_MANY_ATTEMPT);
+					}
+
+				}
+
+				
+				//if the hoop positions are less than x = 320, too late
+				if(!hoopEffect && hoop.positionX < 320){
+					changeHoopState(hoopState,TOO_CLOSE);
+					hoopNum = 2;
+				}
+				if(!hoopEffect && hoop2.positionX < 320){
+					changeHoopState(hoopState,TOO_CLOSE);
+					hoopNum = 1;
+				}
+				
+
 				
 
 				textX -= playerDribbling * moveSpeed1;
@@ -684,13 +804,18 @@ int main(int argc, char **argv)
 						//collision detection for dunking 
 					if(jumpDistance< 344 && jumpDistance > 322 && baller.top[3]> hoop.y1 && baller.top[1] < hoop.y2 && baller.top[2] > hoop.x1 && baller.top[0] < hoop.x2  ){
 						//if player dunked on the current hoop already, don't increment the score
-						if(!hoopEffect) dunkMade = true;
-
+						if(!hoopEffect) {
+							dunkMade = true;
+							changeHoopState(hoopState,REG_DUNK);
+						}
 					}
 
 					if(jumpDistance2 < 344 && jumpDistance2 > 322 && baller.top[3]> hoop2.y1 && baller.top[1] < hoop2.y2 && baller.top[2] > hoop2.x1 && baller.top[0] < hoop2.x2  ){
 						//if player dunked on the current hoop already, don't increment the score
-						if(!hoopEffect) dunkMade = true;
+						if(!hoopEffect) {
+							dunkMade = true;
+							changeHoopState(hoopState,REG_DUNK);
+						}
 
 					}
 
@@ -698,13 +823,19 @@ int main(int argc, char **argv)
 					//collision detection for long ranged dunking 
 					if(baller.top[3]> hoop.y1 && baller.top[1] < hoop.y2 && baller.top[2] > hoop.x1 && baller.top[0] < hoop.x2  ){
 						//if player dunked on the current hoop already, don't increment the score
-						if(!hoopEffect) dunkMade = true;
+						if(!hoopEffect) {
+							dunkMade = true;
+							changeHoopState(hoopState,LONGDUNK);
+						}
 
 					}
 
 					if(baller.top[3]> hoop2.y1 && baller.top[1] < hoop2.y2 && baller.top[2] > hoop2.x1 && baller.top[0] < hoop2.x2  ){
 						//if player dunked on the current hoop already, don't increment the score
-						if(!hoopEffect) dunkMade = true;
+						if(!hoopEffect) {
+							dunkMade = true;
+							changeHoopState(hoopState,LONGDUNK);
+						}
 
 					}
 
@@ -773,6 +904,7 @@ int main(int argc, char **argv)
 						madeNum++;
 						dunkMade = false;
 
+
 					}
 
 					if(hoopEffect){
@@ -825,25 +957,26 @@ int main(int argc, char **argv)
 				if(checkPoint == 12 ){
 
 
-					//instruction for when to dunk to advance to the next checkpoint
-					if(objects[2].positionX < -50)
-						al_draw_text(font_30_man,text_col,400, 250 ,0,"dunk it now ");
-					else
-					{
-						al_draw_text(font_30_man,text_col,400, 250 ,0,"dunk when prompted only!");
+					//hoop becomes green - avialable for dunk - when only the car passed the screen
+					if(!hoopEffect && objects[2].positionX < -50){
+						al_draw_bitmap(hoop_green.image,hoop2.positionX, hoop2.positionY ,0);
+						
+					}else{
+						al_draw_bitmap_region(hoop2.sprite_sheet,0,hoop2.h_img * hoop2.counter / 14 , hoop2.w_img,hoop2.h_img/14,hoop2.positionX, hoop2.positionY ,0);
 					}
-
+						
+					al_draw_text(font_30_man , text_col, 50 ,120, 0, "Dunk when the rim is green");
 
 					//hoop animation below
-
-					al_draw_bitmap_region(hoop.sprite_sheet,0,hoop2.h_img * hoop2.counter / 14 , hoop2.w_img,hoop2.h_img/14,hoop2.positionX, hoop2.positionY ,0);
-
-
-					if(dunkMade){
-						if(objects[2].positionX < -50) hoopEffect = true;
-						madeNum++;
-						dunkMade = false;
-
+					if(dunkMade ){
+						//advance only when the rim is green
+						if(objects[2].positionX < -50){
+							hoopEffect = true;
+							madeNum++;
+							dunkMade = false;
+						}else {
+							dunkMade = false;
+						}
 					}
 
 					if(hoopEffect){
@@ -862,7 +995,11 @@ int main(int argc, char **argv)
 
 					}else{
 						hoop2.positionX -= playerDribbling * moveSpeed1;
-						// hoop2.positionX += playerStopping * 2;
+						if(hoop2.positionX < -100){
+							collided = true;
+							getRandNum = true;
+						}
+						
 
 					}
 
@@ -879,7 +1016,8 @@ int main(int argc, char **argv)
 
 					if(textX < -50)
 						textX = WIDTH;
-					al_draw_text(font_30_man,text_col_green,textX, 250 ,0,"dunk on either of the hoops to advance");
+					// al_draw_text(font_30_man,text_col_green,textX, 250 ,0,"Dunk on either of the hoops to advance");
+					al_draw_text(font_30_man , text_col, 50 ,120, 0, "Dunk on either of the hoops to advance");
 
 	
 
@@ -1169,7 +1307,14 @@ int main(int argc, char **argv)
 				 
 				al_draw_textf(font_20_man , text_col_green, 50 ,30, 0, "Dunk attempts: %d/%d " , attemptNum,madeNum);
 				al_draw_textf(font_20_man , text_col_green, 50 ,55, 0, "Distance traveled: %d" , x_off);
+
+
+				//testing
+				// al_draw_textf(font_20_man , text_col_green, 50 ,120, 0, "x_hoop: %d" , hoop.positionX);
+				// al_draw_text(font_30_man , text_col_green, x_player, y_player - 80, ALLEGRO_ALIGN_LEFT, "GOOD DUNK");
+
 				al_draw_textf(font_20_man , text_col_green, WIDTH - 200 ,20, 0, "checkpoint:%d" , checkPoint);
+
 
 
 			}
@@ -1332,12 +1477,15 @@ int main(int argc, char **argv)
 				
 				moveSpeed1 = 1;
 				textX -= playerDribbling  * moveSpeed1;
-
-
-
 			}
 
 
+			//testing
+			// al_draw_rectangle(objects[1].x1,objects[1].y1,objects[1].x2,objects[1].y2,text_col,2);
+			// al_draw_rectangle(objects[0].x1,objects[0].y1,objects[0].x2,objects[0].y2,text_col,2);
+			// al_draw_rectangle(objects[0].x1 - 50,objects[0].y1 - 300,objects[0].x2,objects[0].y2,text_col_green,2);
+			// al_draw_rectangle(objects[2].x1,objects[2].y1,objects[2].x2,objects[2].y2,text_col,2);
+			// al_draw_rectangle(objects[2].x1 - 50,objects[2].y1 - 300,objects[2].x2,objects[2].y2,text_col_green,2);
 
 
 			al_flip_display();
@@ -1374,3 +1522,53 @@ int main(int argc, char **argv)
 
 }
 
+
+//loads objects used in the game
+void loadObjects(Objects *objects){
+
+	objects[1].sprite_sheet = al_load_bitmap("bitmaps/pollution_car1.png");
+	objects[1].w_img = al_get_bitmap_width(objects[1].sprite_sheet);
+	objects[1].h_img = al_get_bitmap_height(objects[1].sprite_sheet);
+	objects[1].positionX = -300;
+	objects[1].positionY = 170;
+	objects[1].sprite_count = 14;
+
+	objects[2].sprite_sheet = al_load_bitmap("bitmaps/pollution_car3.png");
+	objects[2].w_img = al_get_bitmap_width(objects[2].sprite_sheet);
+	objects[2].h_img = al_get_bitmap_height(objects[2].sprite_sheet);
+	objects[2].positionX = WIDTH + 1500;
+	objects[2].positionY = 120;
+	objects[2].sprite_count = 14;
+
+
+	objects[0].sprite_sheet = al_load_bitmap("bitmaps/pollution_car3.png");
+	objects[0].w_img = al_get_bitmap_width(objects[0].sprite_sheet);
+	objects[0].h_img = al_get_bitmap_height(objects[0].sprite_sheet);
+	objects[0].positionX = WIDTH + 200;
+	objects[0].positionY = 200;
+	objects[0].sprite_count = 14;
+
+	objects[3].sprite_sheet = al_load_bitmap("bitmaps/pollution_smoke.png");
+	objects[3].w_img = al_get_bitmap_width(objects[3].sprite_sheet);
+	objects[3].h_img = al_get_bitmap_height(objects[3].sprite_sheet);
+	objects[3].positionX = WIDTH;
+	objects[3].positionY = 300;
+	objects[3].counter2 = 39;
+
+
+	objects[4].sprite_sheet = al_load_bitmap("bitmaps/trump.png");
+	objects[4].w_img = al_get_bitmap_width(objects[4].sprite_sheet);
+	objects[4].h_img = al_get_bitmap_height(objects[4].sprite_sheet);
+	objects[4].positionX = WIDTH + 200;
+	objects[4].positionY = 200;
+	objects[4].sprite_count = 8;
+}
+
+//change the states 
+void changeCarState(int &carState, int newState){
+	carState = newState;
+
+}
+void changeHoopState(int &hoopState, int newState){
+	hoopState = newState;
+}
