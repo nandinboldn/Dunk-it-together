@@ -10,7 +10,7 @@ All of the drawings on the wall (background), as well as the game map, were done
 
 
 
-https://user-images.githubusercontent.com/47684438/111091064-002e0c00-84ef-11eb-9a7b-95a768ed8ae9.mov
+[![WAtch the video](https://user-images.githubusercontent.com/47684438/111091064-002e0c00-84ef-11eb-9a7b-95a768ed8ae9.mov)]
 
 
 
