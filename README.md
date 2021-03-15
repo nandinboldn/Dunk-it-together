@@ -12,6 +12,7 @@ All of the drawings on the wall (background), as well as the game map, were done
 
 [![Demo CountPages alpha](https://user-images.githubusercontent.com/47684438/111091064-002e0c00-84ef-11eb-9a7b-95a768ed8ae9.mov)]
 
+![gameplay2](https://user-images.githubusercontent.com/47684438/111091405-11c3e380-84f0-11eb-9bee-3287b63c9b9d.gif)
 
 
 
