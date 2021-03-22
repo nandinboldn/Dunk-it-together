@@ -17,14 +17,14 @@
 
 
 
- First, player learns when to hold on SPACE for a successful dunk - how much distant from the hoop - because a particular range from the hoop needs to obtained prior making successful dunks. When player performs a successful dunk, the hoop will switch the colors of its board, and start moving itself. Moreover, simple information text on the top left of a screen displays total dunk attempts, the distance traveled so far, and dunker’s alignment with either of the hoops ( the closer to 0, the more chance for a successful dunk). 
+ First, a player learns when to hold on SPACE for a successful dunk - how much distant from the hoop - because a particular range from the hoop needs to be obtained prior making successful dunks. When player performs a successful dunk, the hoop will switch the colors of its board, and start moving itself. Moreover, simple information text on the top left of a screen displays total dunk attempts, the distance traveled so far, and dunker’s alignment with either of the hoops ( the closer to 0, the more chance for a successful dunk). 
 
 
 <img width="1100" alt="Screen Shot 2021-03-14 at 5 56 48 PM" src="https://user-images.githubusercontent.com/47684438/111091076-0ae8a100-84ef-11eb-9393-58e2b124f2ae.png">
 
 
 
- As player proceeds and is aware of all the keyboard buttons available already, game gets harder in which user needs to dodge the cars while trying to make dunk attempts. When user dodges cars with UP and DOWN keys, cars will go in slow motion as their speeds get decreased, and get back to normal speed on either of those keys’ release. Gameplay is divided into checkpoints, each made with unique actions of hoops. Players also can restart from the last checkpoint when collided with objects, or when the hoops pass the screen without successful dunk. The goal of a player is to reach the end of a game by traveling as less distance as possible with minimum dunk attempts.
+ As a player proceeds and is aware of all the keyboard buttons available already, game gets harder in which user needs to dodge the cars while trying to make dunk attempts. When user dodges cars with UP and DOWN keys, cars will go in slow motion as their speeds get decreased, and get back to normal speed on either of those keys’ release. Gameplay is divided into checkpoints, each made with unique actions of hoops. Players also can restart from the last checkpoint when collided with objects, or when the hoops pass the screen without successful dunk. The goal of a player is to reach the end of a game by traveling as less distance as possible with minimum dunk attempts.
 
 
 
